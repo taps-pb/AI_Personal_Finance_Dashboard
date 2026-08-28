@@ -1,0 +1,141 @@
+// Phase 1 schema. SQLite has no enums, so `type`/`status`/`reason`/`kind` are
+// Strings validated in app code against unions in lib/constants.ts. Money is
+// integer paise (Int). Every row carries userId for future multi-user (spec §39).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  createdAt    DateTime      @default(now())
+  accounts     Account[]
+  categories   Category[]
+  transactions Transaction[]
+  setting      Setting?
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  institution       String?
+  type              String // AccountType (lib/constants.ts)
+  currency          String   @default("INR")
+  balanceMinor      Int      @default(0) // asset: value; liability: outstanding
+  includeInNetWorth Boolean  @default(true)
+  status            String   @default("active") // active | archived
+  nickname          String?
+  description       String?
+  icon              String?
+  color             String?
+  // credit-card / loan fields (nullable)
+  creditLimitMinor  Int?
+  statementDay      Int?
+  dueDay            Int?
+  // investment field (nullable)
+  investedMinor     Int?
+  isDemo            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  balanceHistory BalanceHistory[]
+  txnsFrom       Transaction[]    @relation("from")
+  txnsTo         Transaction[]    @relation("to")
+
+  @@index([userId])
+}
+
+model BalanceHistory {
+  id            String   @id @default(cuid())
+  accountId     String
+  account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  previousMinor Int
+  newMinor      Int
+  diffMinor     Int
+  reason        String // INITIAL | MANUAL_UPDATE | TRANSACTION | RECONCILE
+  transactionId String?
+  note          String?
+  createdAt     DateTime @default(now())
+
+  @@index([accountId])
+}
+
+model Category {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name     String
+  kind     String // expense | income
+  parentId String?
+  parent   Category?  @relation("sub", fields: [parentId], references: [id])
+  children Category[] @relation("sub")
+  icon     String?
+  color    String?
+
+  transactions Transaction[]
+
+  @@index([userId])
+}
+
+model Transaction {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String // TxnType (lib/constants.ts)
+  amountMinor   Int
+  name          String
+  description   String?
+  date          DateTime
+  accountId     String
+  account       Account  @relation("from", fields: [accountId], references: [id])
+  toAccountId   String?
+  toAccount     Account? @relation("to", fields: [toAccountId], references: [id])
+  feeMinor      Int?
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id])
+  merchant      String?
+  paymentMethod String?
+  tags          String? // comma-separated
+  recurring     Boolean  @default(false)
+  isDemo        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([accountId])
+  @@index([type])
+  @@index([categoryId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  timestamp DateTime @default(now())
+  action    String
+  entity    String
+  entityId  String
+  before    String? // JSON snapshot
+  after     String? // JSON snapshot
+
+  @@index([userId])
+}
+
+model Setting {
+  id                      String  @id @default(cuid())
+  userId                  String  @unique
+  user                    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  autoUpdateBalances      Boolean @default(true)
+  defaultExpenseAccountId String?
+  defaultIncomeAccountId  String?
+  currency                String  @default("INR")
+  dateFormat              String  @default("dd MMM yyyy")
+  timezone                String  @default("Asia/Kolkata")
+}
