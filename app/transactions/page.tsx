@@ -1,6 +1,7 @@
 import { Receipt } from "lucide-react";
 import { getCurrentUser } from "@/lib/user";
 import { getTransactions } from "@/lib/queries";
+import { rupeesToPaise } from "@/lib/money";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
@@ -8,6 +9,15 @@ import { TransactionFilters } from "@/components/transaction-filters";
 import { TransactionList } from "@/components/transaction-list";
 
 export const dynamic = "force-dynamic";
+
+function paiseOrUndef(v?: string): number | undefined {
+  if (!v) return undefined;
+  try {
+    return rupeesToPaise(v);
+  } catch {
+    return undefined;
+  }
+}
 
 export default async function TransactionsPage({
   searchParams,
@@ -23,6 +33,11 @@ export default async function TransactionsPage({
     accountId: str(sp.accountId),
     categoryId: str(sp.categoryId),
     type: str(sp.type),
+    minMinor: paiseOrUndef(str(sp.min)),
+    maxMinor: paiseOrUndef(str(sp.max)),
+    from: str(sp.from),
+    to: str(sp.to),
+    recurring: str(sp.recurring) === "1",
   });
 
   const catByParent = (() => {
@@ -31,6 +46,9 @@ export default async function TransactionsPage({
       .map((c) => ({ id: c.id, name: c.parentId ? `${byId.get(c.parentId)?.name ?? ""} / ${c.name}` : c.name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   })();
+
+  const acctOpts = accounts.map((a) => ({ id: a.id, name: a.name, type: a.type, icon: a.icon }));
+  const catOpts = categories.map((c) => ({ id: c.id, name: c.name, kind: c.kind, parentId: c.parentId }));
 
   return (
     <div className="space-y-5">
@@ -49,7 +67,7 @@ export default async function TransactionsPage({
           ) : (
             <>
               <p className="mb-2 text-xs text-muted-foreground">{txns.length} transaction{txns.length === 1 ? "" : "s"}</p>
-              <TransactionList items={txns} />
+              <TransactionList items={txns} accounts={acctOpts} categories={catOpts} />
             </>
           )}
         </CardContent>

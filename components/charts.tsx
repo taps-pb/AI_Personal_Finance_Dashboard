@@ -117,6 +117,33 @@ export function IncomeExpenseChart({ data }: { data: { label: string; incomeMino
   );
 }
 
+export function InOutChart({ data }: { data: { label: string; inMinor: number; outMinor: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }} barGap={4}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+        <XAxis dataKey="label" {...axisProps} />
+        <YAxis {...axisProps} width={64} tickFormatter={(v: number) => compactINR(v)} />
+        <Tooltip
+          cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+          content={({ active, payload }) =>
+            active && payload?.length ? (
+              <TooltipBox
+                rows={[
+                  { label: "In", value: formatINR((payload.find((p) => p.dataKey === "inMinor")?.value as number) ?? 0), color: "var(--success)" },
+                  { label: "Out", value: formatINR((payload.find((p) => p.dataKey === "outMinor")?.value as number) ?? 0), color: "var(--primary)" },
+                ]}
+              />
+            ) : null
+          }
+        />
+        <Bar dataKey="inMinor" fill="var(--success)" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="outMinor" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function CategoryDonut({ data }: { data: { name: string; amountMinor: number; color: string }[] }) {
   return (
     <ResponsiveContainer width="100%" height={260}>

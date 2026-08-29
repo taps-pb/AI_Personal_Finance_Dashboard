@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentUser } from "@/lib/user";
 import { getAccountDetail } from "@/lib/queries";
+import { prisma } from "@/lib/db";
 import { formatINR } from "@/lib/money";
 import { accountKind } from "@/lib/constants";
 import { creditUtilization, investmentReturn } from "@/lib/finance/metrics";
@@ -10,7 +11,7 @@ import { StatCard } from "@/components/stat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { TransactionList } from "@/components/transaction-list";
-import { BalanceHistoryChart } from "@/components/charts";
+import { BalanceHistoryChart, InOutChart } from "@/components/charts";
 import { UpdateBalanceButton } from "@/components/account-actions";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,13 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const data = await getAccountDetail(user.id, id);
   if (!data) notFound();
 
-  const { account: a, moneyInMinor, moneyOutMinor, history, txns } = data;
+  const { account: a, moneyInMinor, moneyOutMinor, history, txns, categoryBreakdown, monthly } = data;
+  const [accountsRaw, categoriesRaw] = await Promise.all([
+    prisma.account.findMany({ where: { userId: user.id, status: "active" }, orderBy: { createdAt: "asc" } }),
+    prisma.category.findMany({ where: { userId: user.id } }),
+  ]);
+  const acctOpts = accountsRaw.map((x) => ({ id: x.id, name: x.name, type: x.type, icon: x.icon }));
+  const catOpts = categoriesRaw.map((c) => ({ id: c.id, name: c.name, kind: c.kind, parentId: c.parentId }));
   const liability = accountKind(a.type) === "liability";
   const util = a.type === "Credit Card" && a.creditLimitMinor ? creditUtilization(a.balanceMinor, a.creditLimitMinor) : null;
   const pl = a.investedMinor != null ? investmentReturn(a.balanceMinor, a.investedMinor) : null;
@@ -68,6 +75,37 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         </CardContent>
       </Card>
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <InOutChart data={monthly} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Spending by category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {categoryBreakdown.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No categorized spending from this account yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {categoryBreakdown.map((c) => (
+                  <li key={c.name} className="flex items-center gap-2 text-sm">
+                    <span className="size-2.5 rounded-full" style={{ background: c.color }} />
+                    <span className="truncate">{c.name}</span>
+                    <span className="ml-auto font-medium tabular">{formatINR(c.amountMinor)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Transactions</CardTitle>
@@ -78,6 +116,8 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           ) : (
             <TransactionList
               showAccount={false}
+              accounts={acctOpts}
+              categories={catOpts}
               items={txns.map((t) => ({
                 id: t.id,
                 type: t.type,
@@ -86,6 +126,12 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                 date: t.date,
                 categoryName: t.categoryName,
                 merchant: t.merchant,
+                accountId: t.accountId,
+                toAccountId: t.toAccountId,
+                categoryId: t.categoryId,
+                feeMinor: t.feeMinor,
+                paymentMethod: t.paymentMethod,
+                description: t.description,
               }))}
             />
           )}

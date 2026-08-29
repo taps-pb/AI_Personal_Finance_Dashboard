@@ -179,6 +179,149 @@ export async function createCcPayment(raw: unknown): Promise<ActionResult> {
   }
 }
 
+async function persistEdit(id: string, input: CreateInput) {
+  const settings = await getSettings(input.userId);
+  await prisma.$transaction(async (tx) => {
+    const from = await tx.account.findUniqueOrThrow({ where: { id: input.accountId } });
+    const to = input.toAccountId ? await tx.account.findUniqueOrThrow({ where: { id: input.toAccountId } }) : null;
+
+    // 1) undo the old effect exactly (and clear its history rows)
+    await reverseTransactionHistory(tx, id);
+
+    // 2) update the row (type is preserved)
+    await tx.transaction.update({
+      where: { id },
+      data: {
+        amountMinor: input.amountMinor,
+        name: input.name,
+        date: input.date,
+        accountId: input.accountId,
+        toAccountId: input.toAccountId ?? null,
+        feeMinor: input.feeMinor ?? null,
+        categoryId: input.categoryId ?? null,
+        merchant: input.merchant ?? null,
+        paymentMethod: input.paymentMethod ?? null,
+        description: input.description ?? null,
+        tags: input.tags ?? null,
+      },
+    });
+
+    // 3) re-apply the new effect
+    if (settings.autoUpdateBalances) {
+      const core: TxnCore = {
+        type: input.type,
+        amountMinor: input.amountMinor,
+        accountId: input.accountId,
+        toAccountId: input.toAccountId,
+        feeMinor: input.feeMinor,
+      };
+      await applyTransaction(tx, core, from.type, to?.type ?? null, id);
+    }
+
+    await writeAudit(tx, {
+      userId: input.userId,
+      action: "transaction.edit",
+      entity: "Transaction",
+      entityId: id,
+      after: { type: input.type, amountMinor: input.amountMinor, name: input.name },
+    });
+  });
+  revalidateAll();
+}
+
+export async function editExpense(id: string, raw: unknown): Promise<ActionResult> {
+  const parsed = expenseSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const d = parsed.data;
+  try {
+    const user = await getCurrentUser();
+    await persistEdit(id, {
+      userId: user.id,
+      type: "EXPENSE",
+      amountMinor: d.amount,
+      name: d.name,
+      date: new Date(d.date),
+      accountId: d.accountId,
+      categoryId: d.categoryId,
+      merchant: d.merchant,
+      paymentMethod: d.paymentMethod,
+      description: d.description,
+      tags: d.tags,
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function editIncome(id: string, raw: unknown): Promise<ActionResult> {
+  const parsed = incomeSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const d = parsed.data;
+  try {
+    const user = await getCurrentUser();
+    await persistEdit(id, {
+      userId: user.id,
+      type: "INCOME",
+      amountMinor: d.amount,
+      name: d.name,
+      date: new Date(d.date),
+      accountId: d.accountId,
+      categoryId: d.categoryId,
+      description: d.description,
+      tags: d.tags,
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function editTransfer(id: string, raw: unknown): Promise<ActionResult> {
+  const parsed = transferSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const d = parsed.data;
+  try {
+    const user = await getCurrentUser();
+    await persistEdit(id, {
+      userId: user.id,
+      type: "TRANSFER",
+      amountMinor: d.amount,
+      name: d.note || "Transfer",
+      date: new Date(d.date),
+      accountId: d.fromAccountId,
+      toAccountId: d.toAccountId,
+      feeMinor: d.fee,
+      description: d.note,
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function editCcPayment(id: string, raw: unknown): Promise<ActionResult> {
+  const parsed = ccPaymentSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const d = parsed.data;
+  try {
+    const user = await getCurrentUser();
+    await persistEdit(id, {
+      userId: user.id,
+      type: "CREDIT_CARD_PAYMENT",
+      amountMinor: d.amount,
+      name: d.note || "Credit-card payment",
+      date: new Date(d.date),
+      accountId: d.fromAccountId,
+      toAccountId: d.toAccountId,
+      description: d.note,
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 export async function deleteTransaction(id: string): Promise<ActionResult> {
   try {
     const user = await getCurrentUser();

@@ -20,7 +20,6 @@ import {
   savingsRate,
   spendingByCategory,
   spendingMinor,
-  incomeMinor,
 } from "@/lib/finance/spending";
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -160,45 +159,107 @@ export async function getDashboardData(userId: string) {
   };
 }
 
+/** Cash in/out of a specific account for one transaction (analytics view). */
+function accountFlow(t: TxnRow, accountId: string): { in: number; out: number } {
+  const amt = t.amountMinor;
+  const fee = t.feeMinor ?? 0;
+  if (t.accountId === accountId) {
+    switch (t.type) {
+      case "INCOME":
+      case "REFUND":
+        return { in: amt, out: 0 };
+      case "EXPENSE":
+        return { in: 0, out: amt };
+      case "TRANSFER":
+        return { in: 0, out: amt + fee };
+      case "CREDIT_CARD_PAYMENT":
+        return { in: 0, out: amt };
+      default:
+        return { in: 0, out: 0 };
+    }
+  }
+  if (t.toAccountId === accountId) return { in: amt, out: 0 }; // received via transfer / card payment
+  return { in: 0, out: 0 };
+}
+
 export async function getAccountDetail(userId: string, accountId: string) {
   const account = await prisma.account.findFirst({ where: { id: accountId, userId } });
   if (!account) return null;
-  const [txns, history] = await Promise.all([
+  const [txns, history, categories] = await Promise.all([
     prisma.transaction.findMany({
       where: { userId, OR: [{ accountId }, { toAccountId: accountId }] },
       orderBy: { date: "desc" },
-      take: 100,
     }),
     prisma.balanceHistory.findMany({ where: { accountId }, orderBy: { createdAt: "asc" } }),
+    prisma.category.findMany({ where: { userId } }),
   ]);
-  const categories = await prisma.category.findMany({ where: { userId } });
   const catMap = new Map(categories.map((c) => [c.id, c]));
 
-  const moneyOut = txns
-    .filter((t) => t.accountId === accountId)
-    .reduce((s, t) => s + (spendingMinor(t) > 0 ? spendingMinor(t) : 0), 0);
-  const moneyIn = txns.reduce((s, t) => {
-    if (t.toAccountId === accountId) return s + t.amountMinor; // received via transfer/cc payment
-    return s + incomeMinor(t);
-  }, 0);
+  let moneyIn = 0;
+  let moneyOut = 0;
+  for (const t of txns) {
+    const f = accountFlow(t, accountId);
+    moneyIn += f.in;
+    moneyOut += f.out;
+  }
+
+  // Spending by category for expenses paid from this account.
+  const catAgg = new Map<string, number>();
+  for (const t of txns) {
+    if (t.accountId !== accountId || spendingMinor(t) <= 0) continue;
+    const key = t.categoryId ?? "uncategorized";
+    catAgg.set(key, (catAgg.get(key) ?? 0) + spendingMinor(t));
+  }
+  const categoryBreakdown = [...catAgg.entries()]
+    .map(([id, amountMinor]) => ({
+      name: id === "uncategorized" ? "Uncategorized" : catMap.get(id)?.name ?? "Uncategorized",
+      color: catMap.get(id)?.color ?? "#94a3b8",
+      amountMinor,
+    }))
+    .sort((a, b) => b.amountMinor - a.amountMinor)
+    .slice(0, 6);
+
+  // Monthly money in / out for the last 6 months.
+  const now = new Date();
+  const monthly: { label: string; inMinor: number; outMinor: number }[] = [];
+  for (let m = 5; m >= 0; m--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+    let mi = 0;
+    let mo = 0;
+    for (const t of txns) {
+      const td = new Date(t.date);
+      if (td.getFullYear() !== d.getFullYear() || td.getMonth() !== d.getMonth()) continue;
+      const f = accountFlow(t, accountId);
+      mi += f.in;
+      mo += f.out;
+    }
+    monthly.push({ label: MONTH_LABELS[d.getMonth()], inMinor: mi, outMinor: mo });
+  }
 
   return {
     account,
     moneyInMinor: moneyIn,
     moneyOutMinor: moneyOut,
+    categoryBreakdown,
+    monthly,
     history: history.map((h) => ({
       label: new Date(h.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
       balanceMinor: h.newMinor,
     })),
-    txns: txns.map((t) => ({
+    txns: txns.slice(0, 80).map((t) => ({
       id: t.id,
       type: t.type,
       name: t.name,
       amountMinor: t.amountMinor,
       date: t.date.toISOString(),
-      direction: t.toAccountId === accountId ? "in" : "out",
       categoryName: t.categoryId ? catMap.get(t.categoryId)?.name ?? null : null,
       merchant: t.merchant,
+      accountId: t.accountId,
+      toAccountId: t.toAccountId,
+      categoryId: t.categoryId,
+      feeMinor: t.feeMinor,
+      paymentMethod: t.paymentMethod,
+      description: t.description,
     })),
   };
 }
@@ -208,6 +269,11 @@ export interface TxnFilter {
   accountId?: string;
   categoryId?: string;
   type?: string;
+  minMinor?: number;
+  maxMinor?: number;
+  from?: string; // yyyy-mm-dd
+  to?: string; // yyyy-mm-dd
+  recurring?: boolean;
 }
 
 export async function getTransactions(userId: string, filter: TxnFilter = {}) {
@@ -222,6 +288,19 @@ export async function getTransactions(userId: string, filter: TxnFilter = {}) {
   if (filter.accountId) where.OR = [{ accountId: filter.accountId }, { toAccountId: filter.accountId }];
   if (filter.categoryId) where.categoryId = filter.categoryId;
   if (filter.type) where.type = filter.type;
+  if (filter.recurring) where.recurring = true;
+  if (filter.minMinor != null || filter.maxMinor != null) {
+    where.amountMinor = {
+      ...(filter.minMinor != null ? { gte: filter.minMinor } : {}),
+      ...(filter.maxMinor != null ? { lte: filter.maxMinor } : {}),
+    };
+  }
+  if (filter.from || filter.to) {
+    const range: Record<string, Date> = {};
+    if (filter.from) range.gte = new Date(`${filter.from}T00:00:00`);
+    if (filter.to) range.lte = new Date(`${filter.to}T23:59:59`);
+    where.date = range;
+  }
   if (filter.q)
     where.AND = [
       {
@@ -248,6 +327,11 @@ export async function getTransactions(userId: string, filter: TxnFilter = {}) {
       toAccountName: t.toAccountId ? acctMap.get(t.toAccountId)?.name ?? null : null,
       categoryName: t.categoryId ? catMap.get(t.categoryId)?.name ?? null : null,
       merchant: t.merchant,
+      accountId: t.accountId,
+      toAccountId: t.toAccountId,
+      categoryId: t.categoryId,
+      paymentMethod: t.paymentMethod,
+      description: t.description,
     })),
   };
 }

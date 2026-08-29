@@ -107,4 +107,12 @@ export const updateBalanceSchema = z.object({
   note: optionalStr,
 });
 
+export const categorySchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  kind: z.enum(["expense", "income"]),
+  parentId: optionalStr,
+  icon: optionalStr,
+  color: optionalStr,
+});
+
 export type ActionResult = { ok: true } | { ok: false; error: string };
