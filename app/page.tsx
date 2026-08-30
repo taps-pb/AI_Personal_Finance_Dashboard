@@ -144,6 +144,58 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
+      {/* Upcoming subscriptions + credit-card due */}
+      {(d.upcomingSubscriptions.length > 0 || d.creditCardDue.length > 0) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle>Upcoming subscriptions</CardTitle>
+              <Link href="/subscriptions" className="text-xs text-primary hover:underline">
+                Manage
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-3 text-xs text-muted-foreground">
+                About <span className="font-medium text-foreground">{formatINR(d.subscriptionMonthlyMinor)}/month</span> on subscriptions.
+              </p>
+              {d.upcomingSubscriptions.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">Nothing renewing in the next 30 days.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {d.upcomingSubscriptions.map((s) => (
+                    <li key={s.id} className="flex items-center gap-2 text-sm">
+                      <span className="truncate">{s.name}</span>
+                      {s.accountName && <span className="truncate text-xs text-muted-foreground">· {s.accountName}</span>}
+                      <span className="ml-auto text-xs text-muted-foreground">{daysLabel(s.daysUntil)}</span>
+                      <span className="w-20 text-right font-medium tabular">{formatINR(s.amountMinor)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          {d.creditCardDue.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Credit-card payments due</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {d.creditCardDue.map((c) => (
+                    <li key={c.id} className="flex items-center gap-2 text-sm">
+                      <span className="truncate">{c.name}</span>
+                      <span className={`ml-auto text-xs ${c.daysUntil <= 3 ? "text-destructive" : "text-muted-foreground"}`}>{daysLabel(c.daysUntil)}</span>
+                      <span className="w-24 text-right font-medium tabular">{formatINR(c.outstandingMinor)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
       {/* Recent + largest */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -190,6 +242,13 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
+}
+
+function daysLabel(d: number): string {
+  if (d < 0) return `${-d}d overdue`;
+  if (d === 0) return "today";
+  if (d === 1) return "tomorrow";
+  return `in ${d}d`;
 }
 
 export const dynamic = "force-dynamic";

@@ -21,6 +21,8 @@ import {
   spendingByCategory,
   spendingMinor,
 } from "@/lib/finance/spending";
+import { subscriptionMonthlyEquivalent, type BillingFrequency } from "@/lib/finance/metrics";
+import { daysUntil, nextByDayOfMonth } from "@/lib/finance/recurrence";
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -79,10 +81,11 @@ function incomeExpenseSeries(txns: TxnRow[], months: number) {
 
 export async function getDashboardData(userId: string) {
   const now = new Date();
-  const [accounts, txns, categories] = await Promise.all([
+  const [accounts, txns, categories, subs] = await Promise.all([
     prisma.account.findMany({ where: { userId } }),
     prisma.transaction.findMany({ where: { userId }, orderBy: { date: "desc" } }),
     prisma.category.findMany({ where: { userId } }),
+    prisma.subscription.findMany({ where: { userId, status: "active" } }),
   ]);
   const histories = await prisma.balanceHistory.findMany({
     where: { account: { userId } },
@@ -136,7 +139,40 @@ export async function getDashboardData(userId: string) {
       accountName: accounts.find((a) => a.id === t.accountId)?.name ?? "",
     }));
 
+  // Subscriptions summary + upcoming renewals (next 30 days).
+  const subscriptionMonthlyMinor = subs.reduce(
+    (s, x) => s + subscriptionMonthlyEquivalent(x.amountMinor, x.frequency as BillingFrequency, x.intervalDays ?? undefined),
+    0,
+  );
+  const upcomingSubscriptions = subs
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      amountMinor: s.amountMinor,
+      accountName: s.accountId ? accounts.find((a) => a.id === s.accountId)?.name ?? null : null,
+      daysUntil: daysUntil(s.nextBillingDate),
+    }))
+    .filter((s) => s.daysUntil >= 0 && s.daysUntil <= 30)
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+
+  // Credit-card payments due soon (next 15 days).
+  const creditCardDue = accounts
+    .filter((a) => a.type === "Credit Card" && a.dueDay && a.status !== "archived" && a.balanceMinor > 0)
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      daysUntil: daysUntil(nextByDayOfMonth(a.dueDay!)),
+      outstandingMinor: a.balanceMinor,
+      minDueMinor: a.minDueMinor,
+    }))
+    .filter((a) => a.daysUntil <= 15)
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+
   return {
+    subscriptionMonthlyMinor,
+    subscriptionAnnualMinor: subscriptionMonthlyMinor * 12,
+    upcomingSubscriptions,
+    creditCardDue,
     netWorthMinor: netWorth(acctLike),
     totalAssetsMinor: totalAssets(acctLike),
     totalLiabilitiesMinor: totalLiabilities(acctLike),

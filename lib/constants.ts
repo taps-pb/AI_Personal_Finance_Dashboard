@@ -83,3 +83,24 @@ export const TXN_TYPE_LABELS: Record<TxnType, string> = {
 };
 
 export const CURRENCY = "INR";
+
+export const BILLING_FREQUENCIES = [
+  "weekly",
+  "monthly",
+  "every2months",
+  "quarterly",
+  "every6months",
+  "yearly",
+  "custom",
+] as const;
+export type Frequency = (typeof BILLING_FREQUENCIES)[number];
+
+export const FREQUENCY_LABELS: Record<Frequency, string> = {
+  weekly: "Weekly",
+  monthly: "Monthly",
+  every2months: "Every 2 months",
+  quarterly: "Quarterly",
+  every6months: "Every 6 months",
+  yearly: "Yearly",
+  custom: "Custom interval",
+};

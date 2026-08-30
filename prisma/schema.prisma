@@ -18,6 +18,9 @@ model User {
   accounts     Account[]
   categories   Category[]
   transactions Transaction[]
+  subscriptions Subscription[]
+  recurring    RecurringTransaction[]
+  budgets      Budget[]
   setting      Setting?
 }
 
@@ -40,6 +43,7 @@ model Account {
   creditLimitMinor  Int?
   statementDay      Int?
   dueDay            Int?
+  minDueMinor       Int?
   // investment field (nullable)
   investedMinor     Int?
   isDemo            Boolean  @default(false)
@@ -47,8 +51,11 @@ model Account {
   updatedAt         DateTime @updatedAt
 
   balanceHistory BalanceHistory[]
-  txnsFrom       Transaction[]    @relation("from")
-  txnsTo         Transaction[]    @relation("to")
+  txnsFrom       Transaction[]          @relation("from")
+  txnsTo         Transaction[]          @relation("to")
+  subscriptions  Subscription[]
+  recurFrom      RecurringTransaction[] @relation("recurFrom")
+  recurTo        RecurringTransaction[] @relation("recurTo")
 
   @@index([userId])
 }
@@ -81,6 +88,9 @@ model Category {
   color    String?
 
   transactions Transaction[]
+  subscriptions Subscription[]
+  recurring     RecurringTransaction[]
+  budgets       Budget[]
 
   @@index([userId])
 }
@@ -105,6 +115,8 @@ model Transaction {
   paymentMethod String?
   tags          String? // comma-separated
   recurring     Boolean  @default(false)
+  subscriptionId String?
+  subscription   Subscription? @relation("subscription", fields: [subscriptionId], references: [id])
   isDemo        Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -113,6 +125,7 @@ model Transaction {
   @@index([accountId])
   @@index([type])
   @@index([categoryId])
+  @@index([subscriptionId])
 }
 
 model AuditLog {
@@ -138,4 +151,74 @@ model Setting {
   currency                String  @default("INR")
   dateFormat              String  @default("dd MMM yyyy")
   timezone                String  @default("Asia/Kolkata")
+}
+
+model Subscription {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  provider        String?
+  amountMinor     Int
+  frequency       String // BillingFrequency (lib/finance/metrics.ts)
+  intervalDays    Int? // for custom frequency
+  startDate       DateTime
+  nextBillingDate DateTime
+  lastChargedDate DateTime?
+  accountId       String?
+  account         Account?  @relation(fields: [accountId], references: [id])
+  categoryId      String?
+  category        Category? @relation(fields: [categoryId], references: [id])
+  status          String    @default("active") // active | paused | cancelled
+  autoRenew       Boolean   @default(true)
+  notes           String?
+  isDemo          Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  transactions Transaction[] @relation("subscription")
+
+  @@index([userId])
+  @@index([nextBillingDate])
+}
+
+model RecurringTransaction {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String // TxnType
+  amountMinor  Int
+  name         String
+  accountId    String
+  account      Account   @relation("recurFrom", fields: [accountId], references: [id])
+  toAccountId  String?
+  toAccount    Account?  @relation("recurTo", fields: [toAccountId], references: [id])
+  categoryId   String?
+  category     Category? @relation(fields: [categoryId], references: [id])
+  frequency    String
+  intervalDays Int?
+  nextDate     DateTime
+  lastRunDate  DateTime?
+  notes        String?
+  isDemo       Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([nextDate])
+}
+
+model Budget {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String? // null = overall/global budget
+  category   Category? @relation(fields: [categoryId], references: [id])
+  amountMinor Int
+  isDemo     Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, categoryId])
+  @@index([userId])
 }

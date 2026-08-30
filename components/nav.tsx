@@ -29,8 +29,8 @@ const NAV: Item[] = [
   { href: "/accounts", label: "Accounts", icon: Wallet },
   { href: "/transactions", label: "Transactions", icon: Receipt },
   { href: "/categories", label: "Categories", icon: Tags },
-  { href: "/subscriptions", label: "Subscriptions", icon: Repeat, soon: true },
-  { href: "/budgets", label: "Budgets", icon: PiggyBank, soon: true },
+  { href: "/subscriptions", label: "Subscriptions", icon: Repeat },
+  { href: "/budgets", label: "Budgets", icon: PiggyBank },
   { href: "/investments", label: "Investments", icon: TrendingUp, soon: true },
   { href: "/goals", label: "Goals", icon: Target, soon: true },
   { href: "/analytics", label: "Analytics", icon: LineChart, soon: true },
@@ -91,7 +91,7 @@ export function BottomNav() {
   const pathname = usePathname();
   const items = NAV.filter((i) => !i.soon);
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-border bg-card md:hidden">
       {items.map((item) => {
         const active = isActive(pathname, item.href);
         const Icon = item.icon;
@@ -100,7 +100,7 @@ export function BottomNav() {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex flex-1 flex-col items-center gap-1 py-2 text-xs",
+              "flex min-w-[72px] flex-1 shrink-0 flex-col items-center gap-1 py-2 text-xs",
               active ? "text-primary" : "text-muted-foreground",
             )}
           >

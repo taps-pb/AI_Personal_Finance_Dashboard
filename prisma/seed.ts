@@ -48,6 +48,9 @@ const CATEGORY_COLORS: Record<string, string> = {
 async function main() {
   // Wipe (dev seed) — order respects FKs.
   await prisma.transaction.deleteMany();
+  await prisma.subscription.deleteMany();
+  await prisma.recurringTransaction.deleteMany();
+  await prisma.budget.deleteMany();
   await prisma.balanceHistory.deleteMany();
   await prisma.category.deleteMany();
   await prisma.account.deleteMany();
@@ -190,7 +193,47 @@ async function main() {
 
   await prisma.transaction.createMany({ data: txns as never });
 
-  console.log(`Seeded: 1 user, 7 accounts, ${catId.size} categories, ${txns.length} transactions (all demo).`);
+  // Subscriptions (spec §8) -------------------------------------------------
+  const soon = (days: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + days, 6, 0);
+  const subDefs = [
+    { name: "ChatGPT Plus", provider: "OpenAI", amount: 1999, frequency: "monthly", account: card, cat: "Subscriptions/AI Tools", days: 2 },
+    { name: "Google AI Pro", provider: "Google", amount: 1950, frequency: "monthly", account: card, cat: "Subscriptions/AI Tools", days: 6 },
+    { name: "Netflix", provider: "Netflix", amount: 649, frequency: "monthly", account: card, cat: "Subscriptions/Streaming", days: 11 },
+    { name: "Spotify", provider: "Spotify", amount: 119, frequency: "monthly", account: icici, cat: "Subscriptions/Streaming", days: 18 },
+    { name: "iCloud+", provider: "Apple", amount: 75, frequency: "monthly", account: card, cat: "Subscriptions/Cloud Storage", days: 24 },
+    { name: "Domain renewal", provider: "GoDaddy", amount: 1200, frequency: "yearly", account: icici, cat: "Bills/Utilities", days: 40 },
+  ];
+  for (const s of subDefs) {
+    await prisma.subscription.create({
+      data: {
+        userId, name: s.name, provider: s.provider, amountMinor: r(s.amount), frequency: s.frequency,
+        startDate: new Date(now.getFullYear(), now.getMonth() - 3, 1), nextBillingDate: soon(s.days),
+        accountId: s.account.id, categoryId: catId.get(s.cat) ?? null, autoRenew: true, isDemo: true,
+      },
+    });
+  }
+
+  // Recurring transactions (spec §19) --------------------------------------
+  await prisma.recurringTransaction.create({
+    data: { userId, type: "INCOME", amountMinor: r(85000), name: "Salary", accountId: icici.id, categoryId: catId.get("income/Salary") ?? null, frequency: "monthly", nextDate: new Date(now.getFullYear(), now.getMonth() + 1, 1), isDemo: true },
+  });
+  await prisma.recurringTransaction.create({
+    data: { userId, type: "EXPENSE", amountMinor: r(18000), name: "Rent", accountId: icici.id, categoryId: catId.get("Bills/Rent") ?? null, frequency: "monthly", nextDate: new Date(now.getFullYear(), now.getMonth() + 1, 5), isDemo: true },
+  });
+
+  // Budgets (spec §12) ------------------------------------------------------
+  const budgetDefs: [string | null, number][] = [
+    [null, 40000],
+    ["Food", 8000],
+    ["Entertainment", 3000],
+    ["Shopping", 5000],
+    ["Subscriptions", 5000],
+  ];
+  for (const [catName, amount] of budgetDefs) {
+    await prisma.budget.create({ data: { userId, categoryId: catName ? catId.get(catName) ?? null : null, amountMinor: r(amount), isDemo: true } });
+  }
+
+  console.log(`Seeded: 1 user, 7 accounts, ${catId.size} categories, ${txns.length} transactions, ${subDefs.length} subscriptions, 2 recurring, ${budgetDefs.length} budgets (all demo).`);
 }
 
 main()

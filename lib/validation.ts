@@ -1,7 +1,7 @@
 // Form validation at the trust boundary (spec §50). Rupee strings -> integer paise.
 import { z } from "zod";
 import { rupeesToPaise } from "@/lib/money";
-import { ACCOUNT_TYPES } from "@/lib/constants";
+import { ACCOUNT_TYPES, BILLING_FREQUENCIES } from "@/lib/constants";
 
 const toPaise = z
   .string()
@@ -113,6 +113,38 @@ export const categorySchema = z.object({
   parentId: optionalStr,
   icon: optionalStr,
   color: optionalStr,
+});
+
+export const subscriptionSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  provider: optionalStr,
+  amount: positiveMoney,
+  frequency: z.enum(BILLING_FREQUENCIES),
+  intervalDays: z.coerce.number().int().min(1).max(3650).optional(),
+  startDate: dateStr,
+  nextBillingDate: optionalStr,
+  accountId: optionalStr,
+  categoryId: optionalStr,
+  autoRenew: z.boolean().default(true),
+  notes: optionalStr,
+});
+
+export const recurringSchema = z.object({
+  type: z.enum(["EXPENSE", "INCOME", "TRANSFER"]),
+  amount: positiveMoney,
+  name: z.string().trim().min(1, "Name is required"),
+  accountId: z.string().min(1, "Account is required"),
+  toAccountId: optionalStr,
+  categoryId: optionalStr,
+  frequency: z.enum(BILLING_FREQUENCIES),
+  intervalDays: z.coerce.number().int().min(1).max(3650).optional(),
+  nextDate: dateStr,
+  notes: optionalStr,
+});
+
+export const budgetSchema = z.object({
+  categoryId: optionalStr, // empty => overall budget
+  amount: positiveMoney,
 });
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
