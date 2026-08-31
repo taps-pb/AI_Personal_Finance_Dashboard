@@ -34,7 +34,7 @@ const NAV: Item[] = [
   { href: "/investments", label: "Investments", icon: TrendingUp, soon: true },
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/analytics", label: "Analytics", icon: LineChart },
-  { href: "/assistant", label: "AI Assistant", icon: Sparkles, soon: true },
+  { href: "/assistant", label: "AI Assistant", icon: Sparkles },
   { href: "/settings", label: "Settings", icon: Settings, soon: true },
 ];
 

@@ -3,6 +3,8 @@ import { Wallet } from "lucide-react";
 import { getCurrentUser } from "@/lib/user";
 import { getDashboardData, getAccounts } from "@/lib/queries";
 import { ensureTodaySnapshot } from "@/lib/snapshot";
+import { getInsights } from "@/lib/insights";
+import { AIInsights } from "@/components/ai-insights";
 import { formatINR, compactINR } from "@/lib/money";
 import { accountKind } from "@/lib/constants";
 import { StatCard } from "@/components/stat";
@@ -15,7 +17,7 @@ import { PageHeader } from "@/components/page-header";
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   await ensureTodaySnapshot(user.id);
-  const [d, accounts] = await Promise.all([getDashboardData(user.id), getAccounts(user.id)]);
+  const [d, accounts, insights] = await Promise.all([getDashboardData(user.id), getAccounts(user.id), getInsights(user.id)]);
   const activeAccounts = accounts.filter((a) => a.status !== "archived");
 
   if (activeAccounts.length === 0) {
@@ -242,6 +244,8 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AIInsights insights={insights} />
     </div>
   );
 }
