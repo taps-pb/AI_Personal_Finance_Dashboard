@@ -35,7 +35,7 @@ const NAV: Item[] = [
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/analytics", label: "Analytics", icon: LineChart },
   { href: "/assistant", label: "AI Assistant", icon: Sparkles },
-  { href: "/settings", label: "Settings", icon: Settings, soon: true },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 function isActive(pathname: string, href: string) {

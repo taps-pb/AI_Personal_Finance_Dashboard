@@ -2,17 +2,24 @@
 
 A manual-entry personal finance "command center" — track every account, expense, income, transfer, and credit card in one place, and see net worth, spending, and cash flow at a glance. Built local-first with a strict focus on **financial correctness** (see [conventions](#financial-conventions)).
 
-> **Status: Phase 1 (foundation).** Accounts, the money engine, transactions (expense / income / transfer / credit-card payment), balance history, and the dashboard are implemented. Subscriptions, budgets, goals, analytics, the AI assistant, and import/export are outlined for later phases — their nav items show a **Soon** badge instead of pretending to work.
+> **Status: complete** — all six build phases are implemented. Every nav item is live (nothing is a placeholder).
 
 The full original product specification is preserved verbatim at [`docs/finance-spec.md`](docs/finance-spec.md).
 
-## Features (Phase 1)
+## Features
 
-- **Dashboard** — net worth, liquid / investments / cash / credit outstanding, monthly spending vs income vs cash flow, net-worth-over-time and income-vs-spending charts, spending by category, account distribution, recent transactions, largest expenses.
-- **Accounts** — 18 account types (banks, wallets, cash, credit cards, investments, loans…), each with balance history, per-account detail page, credit-card limit / utilization / available credit, and investment profit/loss.
-- **Transactions** — add/delete Expense, Income, Transfer (with optional fee), and Credit-card payment via a global **+ Add** menu; search and filter by text, account, category, and type.
-- **Correct balances** — every transaction updates balances atomically and is reversed exactly on delete. Transfers and card payments never count as spending or income.
-- **Manual balance updates & reconciliation** — set an account to its real balance; the change is recorded in history.
+- **Dashboard** — net worth, liquid / investments / cash / credit outstanding, monthly spending vs income vs cash flow, net-worth and income-vs-spending charts, spending by category, account distribution, recent transactions, largest expenses, upcoming subscriptions, credit-card dues, and deterministic financial insights.
+- **Accounts** — 18 account types, each with balance history, a detail page (monthly in/out, spending by category), credit-card limit / utilization / available credit, and investment profit/loss.
+- **Transactions** — add / edit / delete Expense, Income, Transfer (with optional fee), and Credit-card payment via a global **+ Add** menu; rich search + filters (text, account, category, type, amount range, date range, recurring). Edits and deletes recalculate balances exactly.
+- **Categories** — manage expense/income categories and subcategories with icons and colors.
+- **Subscriptions & recurring** — track subscriptions (monthly-equivalent, annual cost, upcoming renewals), record a renewal as an expense, and manage arbitrary recurring transactions (salary, rent, EMIs…).
+- **Budgets** — overall and per-category monthly limits with progress, status and projected month-end.
+- **Analytics** — time ranges (7D → all + custom), spend/income trend, comparison vs the previous period, category / account / merchant breakdowns, net-worth movement, and a month-end forecast.
+- **Goals** — savings goals with progress, remaining, required monthly contribution and target date.
+- **AI assistant** — ask questions answered only from your data via deterministic tool functions (`claude-opus-5`); degrades gracefully without an API key.
+- **Notifications** — in-app alerts for renewals, card dues, budgets, low balances and reached goals.
+- **Data** — CSV / JSON export, full JSON backup + restore, CSV import (column mapping, preview, duplicate skip), and an audit trail. Settings for automatic balance updates.
+- **Correct balances** — every transaction updates balances atomically and is reversed exactly on delete/edit. Transfers and card payments never count as spending or income.
 - **Light / dark / system theme**, responsive (sidebar on desktop, bottom nav on mobile).
 
 ## Tech stack
@@ -21,7 +28,7 @@ The full original product specification is preserved verbatim at [`docs/finance-
 - **Prisma 6** + **SQLite** (single local file)
 - **Tailwind CSS v4** + **Radix UI** primitives + **lucide-react** icons
 - **Recharts** for charts, **next-themes** for theming, **Zod** for validation
-- **Anthropic SDK** (`claude-opus-5`) planned for the Phase 5 AI assistant
+- **Anthropic SDK** (`claude-opus-5`) for the AI assistant (optional; set `ANTHROPIC_API_KEY`)
 
 ## Getting started
 
@@ -40,7 +47,7 @@ npm run dev                   # http://localhost:3000
 | Variable            | Purpose                                                        |
 | ------------------- | ------------------------------------------------------------- |
 | `DATABASE_URL`      | SQLite file path (default `file:./dev.db`, under `prisma/`).  |
-| `ANTHROPIC_API_KEY` | AI assistant (Phase 5). Unused now; leave empty. Server-side. |
+| `ANTHROPIC_API_KEY` | AI assistant (`claude-opus-5`). Optional — leave empty to disable it. Server-side only. |
 
 Secrets stay server-side and out of git (`.env` is ignored; `.env.example` is committed).
 
