@@ -2,7 +2,10 @@
 import { prisma } from "@/lib/db";
 import { subscriptionMonthlyEquivalent, type BillingFrequency } from "@/lib/finance/metrics";
 import { daysUntil, calculateBudgetUsage, projectedMonthSpend } from "@/lib/finance/recurrence";
+import { goalProgress, monthlyContributionRequired } from "@/lib/finance/goals";
 import { spendingMinor } from "@/lib/finance/spending";
+
+const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
@@ -146,4 +149,39 @@ export async function getBudgetsData(userId: string) {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return { rows, availableCategories, hasOverall: budgets.some((b) => b.categoryId === null) };
+}
+
+export async function getGoalsData(userId: string) {
+  const now = new Date();
+  const [goals, accounts] = await Promise.all([
+    prisma.savingsGoal.findMany({ where: { userId } }),
+    prisma.account.findMany({ where: { userId } }),
+  ]);
+  const acct = new Map(accounts.map((a) => [a.id, a]));
+
+  return goals
+    .map((g) => {
+      const p = goalProgress(g.currentMinor, g.targetMinor);
+      return {
+        id: g.id,
+        name: g.name,
+        targetMinor: g.targetMinor,
+        currentMinor: g.currentMinor,
+        targetISO: g.targetDate ? g.targetDate.toISOString() : null,
+        targetDaysUntil: g.targetDate ? daysUntil(g.targetDate, now) : null,
+        priority: g.priority,
+        notes: g.notes,
+        linkedAccountId: g.linkedAccountId,
+        linkedAccountName: g.linkedAccountId ? acct.get(g.linkedAccountId)?.name ?? null : null,
+        pct: p.pct,
+        remainingMinor: p.remainingMinor,
+        reached: p.reached,
+        monthlyRequiredMinor: monthlyContributionRequired(p.remainingMinor, g.targetDate, now),
+      };
+    })
+    .sort((a, b) => {
+      if (a.reached !== b.reached) return a.reached ? 1 : -1;
+      const pr = (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1);
+      return pr !== 0 ? pr : b.pct - a.pct;
+    });
 }

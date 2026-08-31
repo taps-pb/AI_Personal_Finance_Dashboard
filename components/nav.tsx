@@ -32,8 +32,8 @@ const NAV: Item[] = [
   { href: "/subscriptions", label: "Subscriptions", icon: Repeat },
   { href: "/budgets", label: "Budgets", icon: PiggyBank },
   { href: "/investments", label: "Investments", icon: TrendingUp, soon: true },
-  { href: "/goals", label: "Goals", icon: Target, soon: true },
-  { href: "/analytics", label: "Analytics", icon: LineChart, soon: true },
+  { href: "/goals", label: "Goals", icon: Target },
+  { href: "/analytics", label: "Analytics", icon: LineChart },
   { href: "/assistant", label: "AI Assistant", icon: Sparkles, soon: true },
   { href: "/settings", label: "Settings", icon: Settings, soon: true },
 ];

@@ -51,6 +51,8 @@ async function main() {
   await prisma.subscription.deleteMany();
   await prisma.recurringTransaction.deleteMany();
   await prisma.budget.deleteMany();
+  await prisma.netWorthSnapshot.deleteMany();
+  await prisma.savingsGoal.deleteMany();
   await prisma.balanceHistory.deleteMany();
   await prisma.category.deleteMany();
   await prisma.account.deleteMany();
@@ -233,7 +235,36 @@ async function main() {
     await prisma.budget.create({ data: { userId, categoryId: catName ? catId.get(catName) ?? null : null, amountMinor: r(amount), isDemo: true } });
   }
 
-  console.log(`Seeded: 1 user, 7 accounts, ${catId.size} categories, ${txns.length} transactions, ${subDefs.length} subscriptions, 2 recurring, ${budgetDefs.length} budgets (all demo).`);
+  // Net-worth snapshots (spec §18) — 6 monthly points trending to current -----
+  const assetsMinor = icici.balanceMinor + hdfc.balanceMinor + cash.balanceMinor + stocks.balanceMinor + mf.balanceMinor + crypto.balanceMinor;
+  const liabMinor = card.balanceMinor;
+  const nwNow = assetsMinor - liabMinor;
+  for (let m = 6; m >= 0; m--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - m, 1, 12, 0);
+    const factor = m === 0 ? 1 : 0.8 + (6 - m) * 0.03;
+    const assets = Math.round(assetsMinor * factor);
+    await prisma.netWorthSnapshot.create({
+      data: { userId, date, totalAssetsMinor: assets, totalLiabilitiesMinor: liabMinor, netWorthMinor: assets - liabMinor, isDemo: true },
+    });
+  }
+  void nwNow;
+
+  // Savings goals (spec §20) -----------------------------------------------
+  const goalDefs = [
+    { name: "Emergency fund", target: 100000, current: 45000, priority: "high", months: 6, account: icici },
+    { name: "New laptop", target: 200000, current: 120000, priority: "medium", months: 4, account: hdfc },
+    { name: "Goa vacation", target: 150000, current: 30000, priority: "low", months: 12, account: hdfc },
+  ];
+  for (const g of goalDefs) {
+    await prisma.savingsGoal.create({
+      data: {
+        userId, name: g.name, targetMinor: r(g.target), currentMinor: r(g.current), priority: g.priority,
+        targetDate: new Date(now.getFullYear(), now.getMonth() + g.months, 15), linkedAccountId: g.account.id, isDemo: true,
+      },
+    });
+  }
+
+  console.log(`Seeded: 1 user, 7 accounts, ${catId.size} categories, ${txns.length} transactions, ${subDefs.length} subscriptions, 2 recurring, ${budgetDefs.length} budgets, 7 snapshots, ${goalDefs.length} goals (all demo).`);
 }
 
 main()

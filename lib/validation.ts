@@ -147,4 +147,18 @@ export const budgetSchema = z.object({
   amount: positiveMoney,
 });
 
+export const goalSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  target: positiveMoney,
+  current: optionalMoney,
+  targetDate: optionalStr,
+  linkedAccountId: optionalStr,
+  priority: z.enum(["low", "medium", "high"]).default("medium"),
+  notes: optionalStr,
+});
+
+export const contributeSchema = z.object({
+  amount: toPaise.refine((v) => v !== 0, "Enter a non-zero amount"),
+});
+
 export type ActionResult = { ok: true } | { ok: false; error: string };

@@ -21,6 +21,8 @@ model User {
   subscriptions Subscription[]
   recurring    RecurringTransaction[]
   budgets      Budget[]
+  netWorthSnapshots NetWorthSnapshot[]
+  savingsGoals SavingsGoal[]
   setting      Setting?
 }
 
@@ -56,6 +58,7 @@ model Account {
   subscriptions  Subscription[]
   recurFrom      RecurringTransaction[] @relation("recurFrom")
   recurTo        RecurringTransaction[] @relation("recurTo")
+  savingsGoals   SavingsGoal[]
 
   @@index([userId])
 }
@@ -220,5 +223,38 @@ model Budget {
   updatedAt  DateTime  @updatedAt
 
   @@unique([userId, categoryId])
+  @@index([userId])
+}
+
+model NetWorthSnapshot {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                  DateTime
+  totalAssetsMinor      Int
+  totalLiabilitiesMinor Int
+  netWorthMinor         Int
+  isDemo                Boolean  @default(false)
+  createdAt             DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model SavingsGoal {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  targetMinor    Int
+  currentMinor   Int       @default(0)
+  targetDate     DateTime?
+  linkedAccountId String?
+  linkedAccount  Account?  @relation(fields: [linkedAccountId], references: [id])
+  priority       String    @default("medium") // low | medium | high
+  notes          String?
+  isDemo         Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
   @@index([userId])
 }
