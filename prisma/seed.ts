@@ -3,9 +3,11 @@
 // Balances are the source of truth; transactions and balance-history rows are
 // planted records so the dashboard, charts, and analytics have meaningful data.
 
-import { PrismaClient } from "@prisma/client";
+import { makePrisma } from "../lib/prisma-money.ts";
 
-const prisma = new PrismaClient();
+// Money-extended client: BigInt columns read back as `number`, so the balance
+// math below (and every other read) stays in plain numbers.
+const prisma = makePrisma();
 
 const r = (rupees: number) => Math.round(rupees * 100); // rupees -> paise
 

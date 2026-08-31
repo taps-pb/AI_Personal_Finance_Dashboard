@@ -1,7 +1,5 @@
 // Lightweight audit log (spec §26). Records what changed, keyed by user.
-import type { Prisma, PrismaClient } from "@prisma/client";
-
-type Db = PrismaClient | Prisma.TransactionClient;
+import type { Db } from "./prisma-money.ts";
 
 export async function writeAudit(
   db: Db,

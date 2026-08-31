@@ -8,11 +8,12 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PrismaClient } from "@prisma/client";
-
 import { applyTransaction, reverseTransactionHistory, type TxnCore } from "../lib/engine.ts";
+import { makePrisma } from "../lib/prisma-money.ts";
 
-let prisma: PrismaClient;
+// Same money-extended client the app uses: money columns are BigInt but read
+// back as `number`, so this asserts the real read/write boundary too.
+let prisma: ReturnType<typeof makePrisma>;
 let dir: string;
 let userId: string;
 
@@ -24,7 +25,7 @@ before(() => {
     env: { ...process.env, DATABASE_URL: url },
     stdio: "pipe",
   });
-  prisma = new PrismaClient({ datasources: { db: { url } } });
+  prisma = makePrisma(url);
 });
 
 after(async () => {
@@ -134,6 +135,16 @@ test("D: transfer ₹10,000 A -> B leaves combined net worth identical", async (
   assert.equal(await bal(a.id), 2000000);
   assert.equal(await bal(b.id), 1000000);
   assert.equal((await bal(a.id)) + (await bal(b.id)), before);
+});
+
+// --- BigInt: a value beyond the old 32-bit Int ceiling survives round-trip --
+test("BigInt: ₹5,00,00,000 (paise > Int32 max) writes and reads back exactly", async () => {
+  const BIG = 5_000_000_000; // ₹5 crore in paise; > 2,147,483,647 (old Int32 limit)
+  const bank = await acct("Bank Account", BIG, "big-bank");
+  assert.equal(await bal(bank.id), BIG); // stored as BigInt, read back as an exact number
+  // and it still moves correctly through the engine:
+  await createTxn({ type: "EXPENSE", amountMinor: 1_000_000_000, accountId: bank.id }); // −₹1 crore
+  assert.equal(await bal(bank.id), 4_000_000_000);
 });
 
 // --- Atomicity: a failing transfer rolls everything back --------------------

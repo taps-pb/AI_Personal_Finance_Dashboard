@@ -1,13 +1,14 @@
 // Server-side bridge between the PURE balance engine (lib/finance/effects.ts)
 // and Prisma. This is the ONLY place account balances are mutated by
 // transactions, so a balance and its BalanceHistory row always move together.
-import type { Prisma } from "@prisma/client";
 // Relative (not "@/") imports so this bridge is runnable under `node --test`
 // type-stripping — the DB integration tests import it directly.
 import { accountKind } from "./constants.ts";
 import { transactionEffect, type BalanceDelta, type EffectInput } from "./finance/effects.ts";
+import type { Db } from "./prisma-money.ts";
 
-type Tx = Prisma.TransactionClient;
+// The money-extended (transaction) client — money fields read back as `number`.
+type Tx = Db;
 
 export interface TxnCore {
   type: EffectInput["type"];

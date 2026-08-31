@@ -34,7 +34,7 @@ model Account {
   institution       String?
   type              String // AccountType (lib/constants.ts)
   currency          String   @default("INR")
-  balanceMinor      Int      @default(0) // asset: value; liability: outstanding
+  balanceMinor      BigInt      @default(0) // asset: value; liability: outstanding
   includeInNetWorth Boolean  @default(true)
   status            String   @default("active") // active | archived
   nickname          String?
@@ -42,12 +42,12 @@ model Account {
   icon              String?
   color             String?
   // credit-card / loan fields (nullable)
-  creditLimitMinor  Int?
+  creditLimitMinor  BigInt?
   statementDay      Int?
   dueDay            Int?
-  minDueMinor       Int?
+  minDueMinor       BigInt?
   // investment field (nullable)
-  investedMinor     Int?
+  investedMinor     BigInt?
   isDemo            Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -67,9 +67,9 @@ model BalanceHistory {
   id            String   @id @default(cuid())
   accountId     String
   account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  previousMinor Int
-  newMinor      Int
-  diffMinor     Int
+  previousMinor BigInt
+  newMinor      BigInt
+  diffMinor     BigInt
   reason        String // INITIAL | MANUAL_UPDATE | TRANSACTION | RECONCILE
   transactionId String?
   note          String?
@@ -103,7 +103,7 @@ model Transaction {
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   type          String // TxnType (lib/constants.ts)
-  amountMinor   Int
+  amountMinor   BigInt
   name          String
   description   String?
   date          DateTime
@@ -111,7 +111,7 @@ model Transaction {
   account       Account  @relation("from", fields: [accountId], references: [id])
   toAccountId   String?
   toAccount     Account? @relation("to", fields: [toAccountId], references: [id])
-  feeMinor      Int?
+  feeMinor      BigInt?
   categoryId    String?
   category      Category? @relation(fields: [categoryId], references: [id])
   merchant      String?
@@ -162,7 +162,7 @@ model Subscription {
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name            String
   provider        String?
-  amountMinor     Int
+  amountMinor     BigInt
   frequency       String // BillingFrequency (lib/finance/metrics.ts)
   intervalDays    Int? // for custom frequency
   startDate       DateTime
@@ -190,7 +190,7 @@ model RecurringTransaction {
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   type         String // TxnType
-  amountMinor  Int
+  amountMinor  BigInt
   name         String
   accountId    String
   account      Account   @relation("recurFrom", fields: [accountId], references: [id])
@@ -217,7 +217,7 @@ model Budget {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   categoryId String? // null = overall/global budget
   category   Category? @relation(fields: [categoryId], references: [id])
-  amountMinor Int
+  amountMinor BigInt
   isDemo     Boolean   @default(false)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -231,9 +231,9 @@ model NetWorthSnapshot {
   userId                String
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   date                  DateTime
-  totalAssetsMinor      Int
-  totalLiabilitiesMinor Int
-  netWorthMinor         Int
+  totalAssetsMinor      BigInt
+  totalLiabilitiesMinor BigInt
+  netWorthMinor         BigInt
   isDemo                Boolean  @default(false)
   createdAt             DateTime @default(now())
 
@@ -245,8 +245,8 @@ model SavingsGoal {
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
-  targetMinor    Int
-  currentMinor   Int       @default(0)
+  targetMinor    BigInt
+  currentMinor   BigInt       @default(0)
   targetDate     DateTime?
   linkedAccountId String?
   linkedAccount  Account?  @relation(fields: [linkedAccountId], references: [id])

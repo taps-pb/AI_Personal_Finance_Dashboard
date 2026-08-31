@@ -15,6 +15,31 @@ export function paiseToRupees(paise: number): number {
   return paise / 100;
 }
 
+// --- BigInt <-> number boundary ---------------------------------------------
+// Money columns are BigInt in the DB (64-bit: no ₹2.14 Cr overflow). The app
+// keeps computing in `number`, which is EXACT for integers up to
+// MAX_SAFE_INTEGER paise (≈ ₹90,071,98,75,47,409 — far beyond any real balance).
+// lib/db.ts converts every `*Minor` field bigint -> number on read through this
+// guard; Prisma accepts a plain number on write, so no write-side conversion.
+
+/** Largest paise value representable exactly as a JS number. */
+export const MAX_SAFE_MINOR = Number.MAX_SAFE_INTEGER;
+
+/** Read-boundary: bigint (or number) -> number, refusing values that would lose precision. */
+export function toNumberMinor(v: bigint | number): number {
+  const n = typeof v === "bigint" ? Number(v) : v;
+  if (!Number.isSafeInteger(n)) {
+    throw new Error(`Monetary value ${v} exceeds the safe integer range (₹${MAX_SAFE_MINOR / 100}).`);
+  }
+  return n;
+}
+
+/** Serialization-boundary helper: render paise as a string when a caller must
+ * avoid JS number/JSON limits entirely (e.g. exporting raw ledgers). */
+export function serializeMoney(paise: number | bigint): string {
+  return typeof paise === "bigint" ? paise.toString() : String(paise);
+}
+
 /** ₹1,50,000.00 — Indian grouping via Intl. Whole rupees drop the decimals by default. */
 export function formatINR(paise: number, opts: { decimals?: boolean } = {}): string {
   const rupees = paise / 100;

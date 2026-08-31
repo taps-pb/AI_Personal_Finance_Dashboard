@@ -15,6 +15,7 @@ import {
 import { netWorth, type AccountLike } from "../lib/finance/networth.ts";
 import { totalSpending } from "../lib/finance/spending.ts";
 import { transferSchema } from "../lib/validation.ts";
+import { toNumberMinor, MAX_SAFE_MINOR } from "../lib/money.ts";
 
 type Acct = AccountLike & { id: string };
 
@@ -214,6 +215,16 @@ test("two-sided types throw without a destination account", () => {
 test("same-account transfer is rejected at the validation boundary", () => {
   const r = transferSchema.safeParse({ fromAccountId: "a", toAccountId: "a", amount: "100", date: "2026-01-01" });
   assert.equal(r.success, false);
+});
+
+// ---------------------------------------------------------------------------
+// Money BigInt<->number boundary guard
+// ---------------------------------------------------------------------------
+test("toNumberMinor converts bigint exactly and guards MAX_SAFE_INTEGER", () => {
+  assert.equal(toNumberMinor(BigInt(5_000_000_000)), 5_000_000_000); // ₹5 crore, past Int32
+  assert.equal(toNumberMinor(42), 42);
+  assert.equal(MAX_SAFE_MINOR, Number.MAX_SAFE_INTEGER);
+  assert.throws(() => toNumberMinor(BigInt(Number.MAX_SAFE_INTEGER) + BigInt(1)), /safe integer range/);
 });
 
 test("mergeDeltas collapses repeated accounts (edit reverse+apply on same account)", () => {
