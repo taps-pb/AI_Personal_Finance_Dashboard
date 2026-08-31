@@ -1,7 +1,8 @@
 // Form validation at the trust boundary (spec §50). Rupee strings -> integer paise.
 import { z } from "zod";
-import { rupeesToPaise } from "@/lib/money";
-import { ACCOUNT_TYPES, BILLING_FREQUENCIES } from "@/lib/constants";
+// Relative (not "@/") imports so validation is runnable under `node --test`.
+import { rupeesToPaise } from "./money.ts";
+import { ACCOUNT_TYPES, BILLING_FREQUENCIES } from "./constants.ts";
 
 const toPaise = z
   .string()

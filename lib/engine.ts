@@ -2,8 +2,10 @@
 // and Prisma. This is the ONLY place account balances are mutated by
 // transactions, so a balance and its BalanceHistory row always move together.
 import type { Prisma } from "@prisma/client";
-import { accountKind } from "@/lib/constants";
-import { transactionEffect, type BalanceDelta, type EffectInput } from "@/lib/finance/effects";
+// Relative (not "@/") imports so this bridge is runnable under `node --test`
+// type-stripping — the DB integration tests import it directly.
+import { accountKind } from "./constants.ts";
+import { transactionEffect, type BalanceDelta, type EffectInput } from "./finance/effects.ts";
 
 type Tx = Prisma.TransactionClient;
 
