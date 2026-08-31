@@ -59,7 +59,7 @@ export function AIAssistant({ configured }: { configured: boolean }) {
       {!configured && (
         <div className="flex items-center gap-2 border-b border-border bg-[var(--warning)]/10 px-4 py-2 text-xs text-[var(--warning)]">
           <AlertTriangle className="size-4 shrink-0" />
-          The assistant isn’t configured. Add <code className="rounded bg-muted px-1">ANTHROPIC_API_KEY</code> to your <code className="rounded bg-muted px-1">.env</code> to enable it.
+          The assistant isn’t configured. Add <code className="rounded bg-muted px-1">GROQ_API_KEY</code> to your <code className="rounded bg-muted px-1">.env</code> to enable it.
         </div>
       )}
 

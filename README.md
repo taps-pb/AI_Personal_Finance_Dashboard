@@ -16,7 +16,7 @@ The full original product specification is preserved verbatim at [`docs/finance-
 - **Budgets** — overall and per-category monthly limits with progress, status and projected month-end.
 - **Analytics** — time ranges (7D → all + custom), spend/income trend, comparison vs the previous period, category / account / merchant breakdowns, net-worth movement, and a month-end forecast.
 - **Goals** — savings goals with progress, remaining, required monthly contribution and target date.
-- **AI assistant** — ask questions answered only from your data via deterministic tool functions (`claude-opus-5`); degrades gracefully without an API key.
+- **AI assistant** — ask questions answered only from your data via deterministic tool functions (Groq); degrades gracefully without an API key.
 - **Notifications** — in-app alerts for renewals, card dues, budgets, low balances and reached goals.
 - **Data** — CSV / JSON export, full JSON backup + restore, CSV import (column mapping, preview, duplicate skip), and an audit trail. Settings for automatic balance updates.
 - **Correct balances** — every transaction updates balances atomically and is reversed exactly on delete/edit. Transfers and card payments never count as spending or income.
@@ -28,7 +28,7 @@ The full original product specification is preserved verbatim at [`docs/finance-
 - **Prisma 6** + **SQLite** (single local file)
 - **Tailwind CSS v4** + **Radix UI** primitives + **lucide-react** icons
 - **Recharts** for charts, **next-themes** for theming, **Zod** for validation
-- **Anthropic SDK** (`claude-opus-5`) for the AI assistant (optional; set `ANTHROPIC_API_KEY`)
+- **Groq** (OpenAI-compatible chat + tool calling) for the AI assistant (optional; set `GROQ_API_KEY`)
 
 ## Getting started
 
@@ -47,7 +47,8 @@ npm run dev                   # http://localhost:3000
 | Variable            | Purpose                                                        |
 | ------------------- | ------------------------------------------------------------- |
 | `DATABASE_URL`      | SQLite file path (default `file:./dev.db`, under `prisma/`).  |
-| `ANTHROPIC_API_KEY` | AI assistant (`claude-opus-5`). Optional — leave empty to disable it. Server-side only. |
+| `GROQ_API_KEY`       | AI assistant (Groq, OpenAI-compatible). Optional — leave empty to disable it. Server-side only. |
+| `GROQ_MODEL`         | Optional model override (default `openai/gpt-oss-120b`; must support tool calling).               |
 
 Secrets stay server-side and out of git (`.env` is ignored; `.env.example` is committed).
 
